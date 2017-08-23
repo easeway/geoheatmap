@@ -25,20 +25,28 @@
         };
     }
 
-    function onChange(changing) {
-        var classes = document.getElementById('overlay').classList;
-        if (changing) {
-            classes.add('overlay_pending');
-            classes.remove('overlay');
-        } else {
-            classes.remove('overlay_pending');
-            classes.add('overlay');
+    function withOverlay(fn) {
+        var elm = document.getElementById('overlay');
+        if (elm != null) {
+            fn(elm);
         }
+    }
+    function onChange(changing) {
+        withOverlay(function (elm) {
+            var classes = elm.classList;
+            if (changing) {
+                classes.add('overlay_pending');
+                classes.remove('overlay');
+            } else {
+                classes.remove('overlay_pending');
+                classes.add('overlay');
+            }
+        });
     }
 
     function updateCounts(counts) {
-        for (var r = 0; r < gridRows; r ++) {
-            for (var c = 0; c < gridCols; c ++) {
+        for (var r = 0; r < heatCells.length; r ++) {
+            for (var c = 0; c < heatCells[r].length; c ++) {
                 var elm = heatCells[r][c];
                 var cnt = counts[r][c];
                 if (cnt == 0) {
@@ -68,20 +76,28 @@
         var stepX = (lower.x - upper.x) / gridCols;
 
         var counts = [];
-        for (var r = 0; r < gridRows; r ++) {
-            counts[r] = [];
-            for (var c = 0; c < gridCols; c ++) {
-                counts[r][c] = 0;
+
+        var hasOvl = false;
+        withOverlay(function() { hasOvl = true; });
+
+        if (hasOvl) {
+            for (var r = 0; r < gridRows; r ++) {
+                counts[r] = [];
+                for (var c = 0; c < gridCols; c ++) {
+                    counts[r][c] = 0;
+                }
             }
         }
 
         pointsInBounds(bounds, function (pts) {
             heatMap.setData(pts.map(function (pt) {
-                var coord = worldCoord(pt.lat, pt.lng);
-                var c = Math.floor((coord.x - upper.x) / stepX);
-                var r = Math.floor((coord.y - upper.y) / stepY);
-                if (r >= 0 && r < gridRows && c >= 0 && c < gridCols) {
-                    counts[r][c] += pt.count;
+                if (hasOvl) {
+                    var coord = worldCoord(pt.lat, pt.lng);
+                    var c = Math.floor((coord.x - upper.x) / stepX);
+                    var r = Math.floor((coord.y - upper.y) / stepY);
+                    if (r >= 0 && r < gridRows && c >= 0 && c < gridCols) {
+                        counts[r][c] += pt.count;
+                    }
                 }
 
                 return {
@@ -90,12 +106,13 @@
                 }
             }));
 
-            updateCounts(counts);
+            if (hasOvl) {
+                updateCounts(counts);
+            }
         });
     }
 
-    function initOverlay() {
-        var ovl = document.getElementById('overlay');
+    function initOverlay(ovl) {
         for (var r = 0; r < gridRows; r ++) {
             heatCells[r] = [];
             for (var c = 0; c < gridCols; c ++) {
@@ -113,7 +130,7 @@
     }
 
     function initMap() {
-        initOverlay();
+        withOverlay(initOverlay);
         var city = {lat: 47.6062, lng: -122.3321};
         map = new google.maps.Map(document.getElementById('map'), {
             center: city,
